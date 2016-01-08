@@ -28,19 +28,19 @@ double bicubicInterpolate (double p[4][4], double x, double y) {
 	return cubicInterpolate(arr, x);
 }
 
-Mat run_bicubic (Mat& img, int f) {
+void run_bicubic (Mat& img, Mat& z_img, int f) {
 	int i, j, k, l, c;
 	double arr[4][4];
 	double color[3];
 	Vec3b* pixel3b;
-	imshow( "Image original", img );
-	waitKey(0);
-	Mat z_img = Mat::eye(f*(img.rows-1)-f+1, f*(img.cols-2)-f+1, CV_8UC3);
+	//imshow( "Imagen original", img );
+	//waitKey(0);
+
 	cout<<"Creando matriz z:img\n";
-	imshow( "Image nueva iniciada", z_img );
-	waitKey(0);
-	cout<<"Stop saltado\n";
-	//CImg<double> z_img( f*(img.width()-2)-f+1, f*(img.height()-1)-f+1, 1, 3, 0 );
+	//imshow( "Image nueva iniciada", z_img );
+	//waitKey(0);
+	//cout<<"Stop saltado\n";
+	/*
 	for(i=0; i<z_img.rows; i++) {
 		for(j=0; j<z_img.cols; j++) {
             pixel3b = &(z_img.at<Vec3b>(Point(j, i)) );
@@ -53,7 +53,7 @@ Mat run_bicubic (Mat& img, int f) {
 	cout<<"Modificando matriz z:img\n";
 	imshow( "Image nueva iniciada", z_img );
 	waitKey(0);
-
+    */
 	for(i=0; i<z_img.rows; i++) {
 		for(j=0; j<z_img.cols; j++) {
 			//Para R,G,B
@@ -72,15 +72,15 @@ Mat run_bicubic (Mat& img, int f) {
 			//z_img.draw_point(i,j,color);
 		}
 	}
-	return z_img;
+	return;
 }
 
 void ejemplo_bicubic(){
     int factor = 3;
     Mat img;
     img = imread("phi.jpg");
-    Mat newimg;
-    newimg = run_bicubic(img, factor);
+    Mat newimg = Mat::eye(factor*(img.rows-1)-factor+1, factor*(img.cols-2)-factor+1, CV_8UC3);
+    run_bicubic(img, newimg, factor);
     imshow( "Image original", img );
     imshow( "Imagen alterada", newimg );
     waitKey(0);
@@ -170,10 +170,25 @@ void display_img_prueba(){
     }
 }
 
+void filtro(Mat& src, Mat& dst, int ind){
+    Point anchor=Point(-1,-1);
+    int ddepth = -1;
+    double delta = 0;
+    int kernel_size = 3;
+    Mat kernel;
+    //int c;
+    //namedWindow( window_name, CV_WINDOW_AUTOSIZE );
+    //c = waitKey(500);
+    kernel_size = 3 + 2*( ind%5 );
+    kernel = Mat::ones( kernel_size, kernel_size, CV_32F )/ (float)(kernel_size*kernel_size);
+    filter2D(src, dst, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
+}
+
 int main()
 {
-    display_img_prueba();
-    ejemplo_bicubic();
+
+    //display_img_prueba();
+    //ejemplo_bicubic();
 
 
 
@@ -181,14 +196,16 @@ int main()
     bool grabar_frames_input=false;
     bool grabar_frames_output=false;
     bool grabar_video_output=true;
+    int factor = 3;
     //Fin Configuracion
+
 
 
     Mat cameraFeed;
 	Mat threshold;
 	Mat HSV;
 	Mat histo;
-	Mat transformFeed;
+
 
     const string filename = "video.MP4";
 	VideoCapture captura;
@@ -224,8 +241,13 @@ int main()
     cout<<"format: "<<format<<endl;
     cout<<"mode: "<<mode<<endl;
 
-    Size frameSize(FRAME_WIDTH, FRAME_HEIGHT);;
+    Size frameSize(factor*(FRAME_WIDTH-1)-factor+1, factor*(FRAME_HEIGHT-2)-factor+1);;
     vector<Mat> planos_BGR;
+
+    Mat transformFeed = Mat::eye(factor*(FRAME_HEIGHT-2)-factor+1, factor*(FRAME_WIDTH-1)-factor+1, CV_8UC3);
+    Mat filtroFeed = Mat::eye(factor*(FRAME_HEIGHT-2)-factor+1, factor*(FRAME_WIDTH-1)-factor+1, CV_8UC3);
+
+
 
     int n=0;
     char nombre[200];
@@ -247,7 +269,6 @@ int main()
     }
     //VideoWriter video("out.avi",CV_FOURCC('M','J','P','G'),10, Size(frame_width,frame_height),true);
 
-
 	while(n<FRAME_COUNT){
 
         ++n;
@@ -259,7 +280,8 @@ int main()
             imwrite(nombre,cameraFeed);
         }
         if(grabar_video_output){
-            transformFeed = cameraFeed;
+            run_bicubic(cameraFeed, transformFeed, factor);
+            filtro(transformFeed,filtroFeed, 5);
         }
 
 		cvtColor(cameraFeed,HSV,COLOR_BGR2HSV);
@@ -267,7 +289,7 @@ int main()
         if(grabar_video_output){
             histograma(cameraFeed, planos_BGR, histo);
             grabar.write(transformFeed);
-            imshow(WindowsGrab, transformFeed );
+            imshow(WindowsGrab, filtroFeed );
             imshow(windowHisto,histo);
             //split(transformFeed, spl);
             //for (int i =0; i < 3; ++i)
