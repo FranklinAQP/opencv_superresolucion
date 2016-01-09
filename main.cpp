@@ -5,14 +5,13 @@
 #include <opencv\highgui.h>
 #include <opencv\cv.h>
 #include <opencv\cxcore.h>
-//#include "CImg.h"
+
 using namespace std;
 using namespace cv;
-//using namespace cimg_library;
 
 const string windowHisto = "Histograma";
 const string windowName = "Video Original";
-const string windowName1 = "Imagen HSV";
+//const string windowName1 = "Imagen HSV";
 const string WindowsGrab = "Grabacion";
 
 double cubicInterpolate (double p[4], double x) {
@@ -33,27 +32,7 @@ void run_bicubic (Mat& img, Mat& z_img, int f) {
 	double arr[4][4];
 	double color[3];
 	Vec3b* pixel3b;
-	//imshow( "Imagen original", img );
-	//waitKey(0);
-
 	cout<<"Creando matriz z:img\n";
-	//imshow( "Image nueva iniciada", z_img );
-	//waitKey(0);
-	//cout<<"Stop saltado\n";
-	/*
-	for(i=0; i<z_img.rows; i++) {
-		for(j=0; j<z_img.cols; j++) {
-            pixel3b = &(z_img.at<Vec3b>(Point(j, i)) );
-			pixel3b->val[0]=123;
-			pixel3b->val[1]=200;
-			pixel3b->val[2]=12;
-		}
-    }
-
-	cout<<"Modificando matriz z:img\n";
-	imshow( "Image nueva iniciada", z_img );
-	waitKey(0);
-    */
 	for(i=0; i<z_img.rows; i++) {
 		for(j=0; j<z_img.cols; j++) {
 			//Para R,G,B
@@ -69,20 +48,35 @@ void run_bicubic (Mat& img, Mat& z_img, int f) {
 			pixel3b->val[0]=color[0];
 			pixel3b->val[1]=color[1];
 			pixel3b->val[2]=color[2];
-			//z_img.draw_point(i,j,color);
 		}
 	}
 	return;
 }
 
+void filtro(Mat& src, Mat& dst, int ind){
+    Point anchor=Point(-1,-1);
+    int ddepth = -1;
+    double delta = 0;
+    int kernel_size = 3;
+    Mat kernel;
+    kernel_size = 3 + 2*( ind%5 );
+    kernel = Mat::ones( kernel_size, kernel_size, CV_32F )/ (float)(kernel_size*kernel_size);
+    filter2D(src, dst, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
+}
+
+
 void ejemplo_bicubic(){
     int factor = 3;
     Mat img;
-    img = imread("phi.jpg");
+    img = imread("rostro.png");
     Mat newimg = Mat::eye(factor*(img.rows-1)-factor+1, factor*(img.cols-2)-factor+1, CV_8UC3);
+    Mat salida = Mat::eye(factor*(img.rows-1)-factor+1, factor*(img.cols-2)-factor+1, CV_8UC3);
     run_bicubic(img, newimg, factor);
+
+    filtro(newimg, salida, 5);
     imshow( "Image original", img );
     imshow( "Imagen alterada", newimg );
+    imshow( "salida", salida );
     waitKey(0);
 }
 
@@ -164,34 +158,20 @@ void display_img_prueba(){
                 //image.at<Vec3b>(Point(x,y)) = color;
             }
         }
+
         imshow( "phi.jpg", image );
         imshow( "Gray image", gray_image );
         waitKey(0);
     }
 }
 
-void filtro(Mat& src, Mat& dst, int ind){
-    Point anchor=Point(-1,-1);
-    int ddepth = -1;
-    double delta = 0;
-    int kernel_size = 3;
-    Mat kernel;
-    //int c;
-    //namedWindow( window_name, CV_WINDOW_AUTOSIZE );
-    //c = waitKey(500);
-    kernel_size = 3 + 2*( ind%5 );
-    kernel = Mat::ones( kernel_size, kernel_size, CV_32F )/ (float)(kernel_size*kernel_size);
-    filter2D(src, dst, ddepth , kernel, anchor, delta, BORDER_DEFAULT );
-}
 
 int main()
 {
-
     //display_img_prueba();
-    //ejemplo_bicubic();
+    ejemplo_bicubic();
 
-
-
+    /*
     //Configuración
     bool grabar_frames_input=false;
     bool grabar_frames_output=false;
@@ -199,14 +179,8 @@ int main()
     int factor = 3;
     //Fin Configuracion
 
-
-
     Mat cameraFeed;
-	Mat threshold;
-	Mat HSV;
 	Mat histo;
-
-
     const string filename = "video.MP4";
 	VideoCapture captura;
 	captura.open(filename);
@@ -241,23 +215,18 @@ int main()
     cout<<"format: "<<format<<endl;
     cout<<"mode: "<<mode<<endl;
 
-    Size frameSize(factor*(FRAME_WIDTH-1)-factor+1, factor*(FRAME_HEIGHT-2)-factor+1);;
+    Size frameSize(factor*(FRAME_WIDTH-1)-factor+1, factor*(FRAME_HEIGHT-2)-factor+1);
     vector<Mat> planos_BGR;
 
     Mat transformFeed = Mat::eye(factor*(FRAME_HEIGHT-2)-factor+1, factor*(FRAME_WIDTH-1)-factor+1, CV_8UC3);
     Mat filtroFeed = Mat::eye(factor*(FRAME_HEIGHT-2)-factor+1, factor*(FRAME_WIDTH-1)-factor+1, CV_8UC3);
 
-
-
     int n=0;
     char nombre[200];
     char videooutput[200];
-    if(grabar_video_output){
-        sprintf(videooutput,"frame%d.png",n);
-    }
+
     if(grabar_video_output){
         string filename_output = "final.avi";
-        //fcc
         int fcc = CV_FOURCC('M','J','P','G');//CV_FOURCC('D','I','V','3');
         int fps = 12;
         grabar = VideoWriter(filename_output, fcc, fps, frameSize);
@@ -267,40 +236,28 @@ int main()
             return -1;
         }
     }
-    //VideoWriter video("out.avi",CV_FOURCC('M','J','P','G'),10, Size(frame_width,frame_height),true);
-
 	while(n<FRAME_COUNT){
-
         ++n;
 		captura.read(cameraFeed);
-
         if(grabar_frames_input){
-            sprintf(nombre,"frame%d.png",n);
+            sprintf(nombre,"iframe%d.png",n);
             cout<<"nombre: "<<nombre<<endl;
             imwrite(nombre,cameraFeed);
         }
         if(grabar_video_output){
             run_bicubic(cameraFeed, transformFeed, factor);
             filtro(transformFeed,filtroFeed, 5);
-        }
-
-		cvtColor(cameraFeed,HSV,COLOR_BGR2HSV);
-
-        if(grabar_video_output){
-            histograma(cameraFeed, planos_BGR, histo);
+            //histograma(cameraFeed, planos_BGR, histo);
             grabar.write(transformFeed);
             imshow(WindowsGrab, filtroFeed );
-            imshow(windowHisto,histo);
-            //split(transformFeed, spl);
-            //for (int i =0; i < 3; ++i)
-              //  spl[i] = figura;
-            //mergeq            w(spl, figura);
-            //grabar.write(figura);
+            //imshow(windowHisto,histo);
         }
-
-
+        if(grabar_frames_output){
+            sprintf(videooutput,"oframe%d.png",n);
+            cout<<"nombre: "<<videooutput<<endl;
+            imwrite(videooutput,filtroFeed);
+        }
 		imshow(windowName,cameraFeed);
-		imshow(windowName1,HSV);
         switch(waitKey(1)){
             case 27://ESC
                 return 0;
@@ -309,4 +266,5 @@ int main()
 	}
 
     return 0;
+    */
 }
